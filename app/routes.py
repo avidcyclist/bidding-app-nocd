@@ -8,7 +8,8 @@ from uuid import uuid4
 from flask import current_app
 from app.utils import get_s3_client, send_sms, check_expired_listings
 import os
-
+from datetime import datetime
+import pytz
 
 main = Blueprint('main', __name__)
 
@@ -82,6 +83,13 @@ def create_listing():
     # Handle JSON or form data
     data = request.get_json() or request.form  # Support both JSON and form data
     try:
+                # Convert end_time to US Central Time
+        utc = pytz.utc
+        central = pytz.timezone('US/Central')
+        end_time_utc = datetime.fromisoformat(data['end_time'])  # Assuming ISO format input
+        end_time_central = end_time_utc.astimezone(central)
+
+        
         new_listing = Listing(
             title=data['title'],
             description=data['description'],
