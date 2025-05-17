@@ -1,10 +1,3 @@
-#class Config:
-#    SECRET_KEY = '026a09a53563d914169373613b947083'  # Replace with a secure key
-#    MYSQL_HOST = 'bidding-app-db.cctaq8qo0d28.us-east-1.rds.amazonaws.com'  # Your RDS endpoint
-#    MYSQL_USER = 'admin'  # Your RDS username
-#    MYSQL_PASSWORD = '6hSKg4q3viqfmOxnw7ae'  # Your RDS password
-#    MYSQL_DB = 'bidding_app'  # Your database name
-
 
 import os
 
