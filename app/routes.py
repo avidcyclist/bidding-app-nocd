@@ -9,7 +9,6 @@ from flask import current_app
 from app.utils import get_s3_client, send_sms, check_expired_listings
 import os
 from datetime import datetime
-import pytz
 
 main = Blueprint('main', __name__)
 
@@ -54,11 +53,10 @@ def get_listings():
         return jsonify({"error": str(e)}), 400
     
 # Allow users to create a new listing
-# Adds details to the listing, such as title, description, starting price, current price, end time, and user ID.
 @main.route('/listings', methods=['POST'])
 def create_listing():
-    S3_BUCKET = current_app.config['S3_BUCKET']
-    S3_REGION = current_app.config['S3_REGION']
+    S3_BUCKET = os.environ.get('S3_BUCKET')
+    S3_REGION = os.environ.get('S3_REGION')
     S3_BASE_URL = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com"
 
     image_url = None  # Default to None if no image is provided
@@ -83,13 +81,6 @@ def create_listing():
     # Handle JSON or form data
     data = request.get_json() or request.form  # Support both JSON and form data
     try:
-                # Convert end_time to US Central Time
-        utc = pytz.utc
-        central = pytz.timezone('US/Central')
-        end_time_utc = datetime.fromisoformat(data['end_time'])  # Assuming ISO format input
-        end_time_central = end_time_utc.astimezone(central)
-
-        
         new_listing = Listing(
             title=data['title'],
             description=data['description'],
@@ -104,6 +95,7 @@ def create_listing():
         return jsonify({"message": "Listing created successfully!", "image_url": image_url}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
      
 
 # Fetch specific listing by ID
@@ -275,16 +267,16 @@ def create_notification():
         return jsonify({"error": str(e)}), 400
     
     
-#@main.route('/debug-env', methods=['GET'])
-#def debug_env():
-#    return jsonify({
-#        "SQLALCHEMY_DATABASE_URI": os.environ.get('SQLALCHEMY_DATABASE_URI'),
-#        "S3_BUCKET": os.environ.get('S3_BUCKET'),
-#        "S3_REGION": os.environ.get('S3_REGION'),
-#        "TWILIO_ACCOUNT_SID": os.environ.get('TWILIO_ACCOUNT_SID'),
-#        "TWILIO_AUTH_TOKEN": os.environ.get('TWILIO_AUTH_TOKEN'),
-#        "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
-#    })
+@main.route('/debug-env', methods=['GET'])
+def debug_env():
+    return jsonify({
+        "SQLALCHEMY_DATABASE_URI": os.environ.get('SQLALCHEMY_DATABASE_URI'),
+        "S3_BUCKET": os.environ.get('S3_BUCKET'),
+        "S3_REGION": os.environ.get('S3_REGION'),
+        "TWILIO_ACCOUNT_SID": os.environ.get('TWILIO_ACCOUNT_SID'),
+        "TWILIO_AUTH_TOKEN": os.environ.get('TWILIO_AUTH_TOKEN'),
+        "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
+    })
 
 
 

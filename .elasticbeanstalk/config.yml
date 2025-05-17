@@ -1,0 +1,20 @@
+branch-defaults:
+  default:
+    environment: bidding-app-env
+    group_suffix: null
+  main:
+    environment: bidding-app-env
+global:
+  application_name: bidding-app
+  branch: null
+  default_ec2_keyname: aws-eb
+  default_platform: Python 3.13 running on 64bit Amazon Linux 2023
+  default_region: us-east-1
+  include_git_submodules: true
+  instance_profile: null
+  platform_name: null
+  platform_version: null
+  profile: eb-cli
+  repository: null
+  sc: null
+  workspace_type: Application
