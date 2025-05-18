@@ -6,6 +6,7 @@ from app.models import Listing, User, Notification, Bid
 from app import db
 from datetime import datetime
 import logging
+from uuid import uuid4
 
 def get_s3_client():
     """
@@ -71,3 +72,36 @@ def check_expired_listings():
         db.session.commit()
     
     return f"{len(expired_listings)} listings expired and notifications sent."
+
+
+
+def create_presigned_url(file_name, file_type):
+    """
+    Generate a pre-signed URL for uploading a file to S3.
+    """
+    try:
+        s3 = boto3.client('s3')
+        bucket = current_app.config['S3_BUCKET']
+        region = current_app.config['S3_REGION']
+
+        # Generate a unique file name
+        unique_file_name = f"{uuid4().hex}_{file_name}"
+
+        # Generate the pre-signed URL
+        presigned_url = s3.generate_presigned_url(
+            'put_object',
+            Params={
+                'Bucket': bucket,
+                'Key': unique_file_name,
+                'ContentType': file_type
+            },
+            ExpiresIn=3600  # URL expires in 1 hour
+        )
+
+        # Return the pre-signed URL and the file path
+        return {
+            "presigned_url": presigned_url,
+            "file_path": f"https://{bucket}.s3.{region}.amazonaws.com/{unique_file_name}"
+        }
+    except Exception as e:
+        raise Exception(f"Failed to generate pre-signed URL: {str(e)}")

@@ -1,12 +1,10 @@
 from flask import Blueprint, jsonify, request
 from app.models import User, Listing, Bid, Notification
 from app import db
-from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 import boto3
-from uuid import uuid4
 from flask import current_app
-from app.utils import get_s3_client, send_sms, check_expired_listings
+from app.utils import get_s3_client, send_sms, check_expired_listings, create_presigned_url
 import os
 from datetime import datetime
 
@@ -55,46 +53,62 @@ def get_listings():
 # Allow users to create a new listing
 @main.route('/listings', methods=['POST'])
 def create_listing():
-    S3_BUCKET = os.environ.get('S3_BUCKET')
-    S3_REGION = os.environ.get('S3_REGION')
-    S3_BASE_URL = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com"
+    print(f"Content-Type: {request.content_type}")
 
-    image_url = None  # Default to None if no image is provided
-
-    # Handle file uploads
-    if 'image' in request.files:
-        file = request.files['image']
-        if file.filename != '':
-            filename = f"{uuid4().hex}_{secure_filename(file.filename)}"
-            s3 = get_s3_client()
-            try:
-                s3.upload_fileobj(
-                    file,
-                    S3_BUCKET,
-                    filename,
-                    ExtraArgs={"ContentType": file.content_type}
-                )
-                image_url = f"{S3_BASE_URL}/{filename}"
-            except Exception as e:
-                return jsonify({"error": f"Failed to upload image to S3: {str(e)}"}), 500
-
-    # Handle JSON or form data
-    data = request.get_json() or request.form  # Support both JSON and form data
     try:
-        new_listing = Listing(
-            title=data['title'],
-            description=data['description'],
-            starting_price=data['starting_price'],
-            current_price=data['starting_price'],
-            end_time=data['end_time'],
-            user_id=data['user_id'],
-            image_url=image_url  # Include the uploaded image URL
-        )
-        db.session.add(new_listing)
-        db.session.commit()
-        return jsonify({"message": "Listing created successfully!", "image_url": image_url}), 201
+        # Log the raw JSON data
+        data = request.get_json()
+        print(f"Raw JSON Data: {data}")
+
+        # Extract fields from the request
+        title = data.get('title')
+        description = data.get('description')
+        starting_price = data.get('starting_price')
+        end_time = data.get('end_time')
+        user_id = data.get('user_id')
+        image_url = data.get('image_url')  # Pre-signed S3 URL
+
+        # Log extracted fields
+        print(f"Extracted Fields: title={title}, description={description}, starting_price={starting_price}, end_time={end_time}, user_id={user_id}, image_url={image_url}")
+
+        # Validate required fields
+        missing = [field for field in ['title', 'description', 'starting_price', 'end_time', 'user_id', 'image_url'] if not data.get(field)]
+        if missing:
+            print(f"Missing Fields: {missing}")
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+        # Save the listing to the database
+        try:
+            listing = Listing(
+                title=title,
+                description=description,
+                starting_price=starting_price,
+                current_price=starting_price,
+                end_time=end_time,
+                user_id=user_id,
+                image_url=image_url  # Save the S3 file path
+            )
+            db.session.add(listing)
+            db.session.commit()
+
+            # Log successful database save
+            print(f"Listing created successfully with ID: {listing.id}")
+
+            return jsonify({
+                "message": "Listing created successfully!",
+                "listing_id": listing.id,
+                "image_url": image_url
+            }), 201
+
+        except Exception as e:
+            # Log database error
+            print(f"Database Error: {str(e)}")
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        # Log general error
+        print(f"Error in create_listing: {str(e)}")
+        return jsonify({"error": f"Error processing request: {str(e)}"}), 500
 
      
 
@@ -348,12 +362,24 @@ def mark_notification_read(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@main.route('/generate-presigned-url', methods=['POST'])
+def generate_presigned_url():
+    data = request.get_json()
+    file_name = data.get('file_name')
+    file_type = data.get('file_type')
 
+    if not file_name or not file_type:
+        return jsonify({'error': 'Missing file_name or file_type'}), 400
 
-
-
-
-
-
-
-
+    try:
+        # Call the utility function to generate the pre-signed URL
+        result = create_presigned_url(file_name, file_type)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    
+@main.route('/debug-routes', methods=['GET'])
+def debug_routes():
+    from flask import current_app
+    return jsonify([str(rule) for rule in current_app.url_map.iter_rules()])

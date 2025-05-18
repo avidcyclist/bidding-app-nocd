@@ -13,9 +13,8 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # Import and register blueprints
-    from .routes import main  # Ensure this import is not causing circular imports
-    if not main.url_prefix:  # Check if the blueprint is already registered
-        app.register_blueprint(main)
+    # Import and register the Blueprint here to avoid circular imports
+    from .routes import main
+    app.register_blueprint(main)
 
     return app
