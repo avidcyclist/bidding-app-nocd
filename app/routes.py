@@ -42,7 +42,8 @@ def get_listings():
                     "current_price": listing.current_price,
                     "end_time": listing.end_time,
                     "user_id": listing.user_id,
-                    "image_url": listing.image_url  # Include the image URL
+                    "image_url": listing.image_url,  # Include the image URL
+                    "is_active": listing.is_active
                 }
                 for listing in listings
             ]
@@ -134,7 +135,8 @@ def get_listing(id):
             "current_price": listing.current_price,
             "end_time": listing.end_time,
             "user_id": listing.user_id,
-            "image_url": listing.image_url  # Include the image URL
+            "image_url": listing.image_url #Include the image URL
+             
         })
     except Exception as e:
         # Handle any exceptions that occur during the query
@@ -450,7 +452,7 @@ def login_user():
             algorithm="HS256"
         )
 
-        return jsonify({"message": "Login successful!", "token": token}), 200
+        return jsonify({"message": "Login successful!", "token": token, "user_id": user.id}), 200
     except Exception as e:
         print(f"Error in login_user: {str(e)}")  # Debugging log
         return jsonify({"error": str(e)}), 500

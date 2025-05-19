@@ -6,7 +6,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    phone_number = db.Column(db.String(15), nullable=False)  # Optional for text messaging
+    phone_number = db.Column(db.String(15), nullable=False) 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     # Equivalent Raw SQL:
