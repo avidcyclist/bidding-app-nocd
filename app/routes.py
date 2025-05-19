@@ -295,7 +295,7 @@ def create_notification():
     
     
 @main.route('/debug-env', methods=['GET'])
-@require_auth
+
 def debug_env():
     return jsonify({
         "SQLALCHEMY_DATABASE_URI": os.environ.get('SQLALCHEMY_DATABASE_URI'),
@@ -304,6 +304,7 @@ def debug_env():
         "TWILIO_ACCOUNT_SID": os.environ.get('TWILIO_ACCOUNT_SID'),
         "TWILIO_AUTH_TOKEN": os.environ.get('TWILIO_AUTH_TOKEN'),
         "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
+        "SECRET_KEY": os.environ.get('SECRET_KEY'),
     })
 
 @main.route('/check-expired', methods=['POST'])
@@ -400,12 +401,14 @@ def register_user():
         if User.query.filter_by(email=data['email']).first():
             return jsonify({"error": "Email already exists"}), 400
 
-        # Create a new user
+        # Create a new user with a consistent hashing algorithm
+        hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+        print(f"Generated password hash: {hashed_password}")  # Debugging log
         new_user = User(
             username=data['username'],
             email=data['email'],
             phone_number=data.get('phone_number'),  # Optional
-            password_hash=generate_password_hash(data['password'])
+            password_hash=hashed_password
         )
         db.session.add(new_user)
         db.session.commit()
@@ -420,16 +423,34 @@ def login_user():
     try:
         # Find the user by username
         user = User.query.filter_by(username=data['username']).first()
-        if not user or not check_password_hash(user.password_hash, data['password']):
+        if not user:
+            print("User not found")  # Debugging log
             return jsonify({"error": "Invalid username or password"}), 401
 
+        # Log the stored password hash and the provided password
+        print(f"Stored password hash: {user.password_hash}")  # Debugging log
+        print(f"Provided password: {data['password']}")  # Debugging log
+
+        # Check the password
+        if not check_password_hash(user.password_hash, data['password']):
+            print("Password check failed")  # Debugging log
+            return jsonify({"error": "Invalid username or password"}), 401
+
+        # Log the user ID
+        print(f"User ID: {user.id}")  # Debugging log
+
         # Generate a JWT token using the SECRET_KEY
+        exp_time = datetime.utcnow() + timedelta(hours=24)
+        payload = {"user_id": user.id, "exp": exp_time.timestamp()}  # Convert exp to timestamp
+        print(f"JWT Payload: {payload}")  # Debugging log
+
         token = jwt.encode(
-            {"user_id": user.id, "exp": datetime.utcnow() + timedelta(hours=24)},
+            payload,
             current_app.config['SECRET_KEY'],
             algorithm="HS256"
         )
 
         return jsonify({"message": "Login successful!", "token": token}), 200
     except Exception as e:
+        print(f"Error in login_user: {str(e)}")  # Debugging log
         return jsonify({"error": str(e)}), 500
