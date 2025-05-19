@@ -9,6 +9,7 @@ import logging
 from uuid import uuid4
 from functools import wraps
 import jwt
+
 def get_s3_client():
     """
     Returns a boto3 S3 client. If running on AWS (Elastic Beanstalk), it will use the IAM Role.
@@ -112,15 +113,25 @@ def require_auth(func):
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization")
         if not token:
+            print("Missing token in request headers")  # Debugging log
             return jsonify({"error": "Missing token"}), 401
+
+        # Handle "Bearer" prefix
+        if token.startswith("Bearer "):
+            token = token.split(" ")[1]  # Extract the token part
+            print(f"Token after stripping 'Bearer': {token}")  # Debugging log
+
         try:
             # Decode the JWT token using the SECRET_KEY from the app config
+            print(f"Token received: {token}")  # Debugging log
             decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+            print(f"Decoded token: {decoded}")  # Debugging log
             request.user_id = decoded["user_id"]  # Attach user_id to the request object
         except jwt.ExpiredSignatureError:
+            print("Token has expired")  # Debugging log
             return jsonify({"error": "Token expired"}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            print(f"Invalid token: {str(e)}")  # Debugging log
             return jsonify({"error": "Invalid token"}), 401
         return func(*args, **kwargs)
-    return wrapper   
-    
+    return wrapper
