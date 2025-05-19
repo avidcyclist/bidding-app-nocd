@@ -1,12 +1,13 @@
 from flask import Blueprint, jsonify, request
 from app.models import User, Listing, Bid, Notification
 from app import db
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 import boto3
 from flask import current_app
-from app.utils import get_s3_client, send_sms, check_expired_listings, create_presigned_url
+from app.utils import get_s3_client, send_sms, check_expired_listings, create_presigned_url, require_auth
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import jwt
 
 main = Blueprint('main', __name__)
 
@@ -52,10 +53,13 @@ def get_listings():
     
 # Allow users to create a new listing
 @main.route('/listings', methods=['POST'])
+@require_auth
 def create_listing():
     print(f"Content-Type: {request.content_type}")
 
     try:
+        # Use the authenticated user's ID
+        user_id = request.user_id
         # Log the raw JSON data
         data = request.get_json()
         print(f"Raw JSON Data: {data}")
@@ -138,9 +142,12 @@ def get_listing(id):
     
 # Post a Bid
 @main.route('/bids', methods=['POST'])
+@require_auth
 def place_bid():
     data = request.get_json()
     try:
+        # Use the authenticated user's ID
+        user_id = request.user_id
         # Fetch the listing
         listing = Listing.query.get(data['listing_id'])
         if not listing:
@@ -154,17 +161,17 @@ def place_bid():
         previous_highest_bid = Bid.query.filter_by(listing_id=data['listing_id']).order_by(Bid.amount.desc()).first()
 
         # Check if the bidder is the seller
-        if listing.user_id == data['user_id']:
+        if listing.user_id == user_id:
             return jsonify({"error": "You cannot bid on your own listing."}), 400
 
         # Check if the user is outbidding themselves
-        if previous_highest_bid and previous_highest_bid.user_id == data['user_id']:
+        if previous_highest_bid and previous_highest_bid.user_id == user_id:
             pass  # Skip notification if the user is outbidding themselves
         else:
             # Notify the seller
             seller = User.query.get(listing.user_id)  # Fetch the seller's details
             seller_notification = Notification(
-                user_id=listing.user_id,
+                user_id=listing.user_id
                 message=f"A new bid has been placed on your listing: {listing.title}",
                 is_read=False
             )
@@ -196,7 +203,7 @@ def place_bid():
         # Create the new bid object
         new_bid = Bid(
             amount=data['amount'],
-            user_id=data['user_id'],
+            user_id=user_id,
             listing_id=data['listing_id']
         )
         db.session.add(new_bid)
@@ -383,3 +390,48 @@ def generate_presigned_url():
 def debug_routes():
     from flask import current_app
     return jsonify([str(rule) for rule in current_app.url_map.iter_rules()])
+
+
+@main.route('/users/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    try:
+        # Check if the username or email already exists
+        if User.query.filter_by(username=data['username']).first():
+            return jsonify({"error": "Username already exists"}), 400
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({"error": "Email already exists"}), 400
+
+        # Create a new user
+        new_user = User(
+            username=data['username'],
+            email=data['email'],
+            phone_number=data.get('phone_number'),  # Optional
+            password_hash=generate_password_hash(data['password'])
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({"message": "User registered successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@main.route('/users/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    try:
+        # Find the user by username
+        user = User.query.filter_by(username=data['username']).first()
+        if not user or not check_password_hash(user.password_hash, data['password']):
+            return jsonify({"error": "Invalid username or password"}), 401
+
+        # Generate a JWT token using the SECRET_KEY
+        token = jwt.encode(
+            {"user_id": user.id, "exp": datetime.utcnow() + timedelta(hours=24)},
+            current_app.config['SECRET_KEY'],
+            algorithm="HS256"
+        )
+
+        return jsonify({"message": "Login successful!", "token": token}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

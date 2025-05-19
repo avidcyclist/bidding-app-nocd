@@ -1,5 +1,5 @@
 import boto3
-from flask import current_app
+from flask import current_app, request, jsonify
 import os
 from twilio.rest import Client
 from app.models import Listing, User, Notification, Bid
@@ -7,7 +7,8 @@ from app import db
 from datetime import datetime
 import logging
 from uuid import uuid4
-
+from functools import wraps
+import jwt
 def get_s3_client():
     """
     Returns a boto3 S3 client. If running on AWS (Elastic Beanstalk), it will use the IAM Role.
@@ -105,3 +106,21 @@ def create_presigned_url(file_name, file_type):
         }
     except Exception as e:
         raise Exception(f"Failed to generate pre-signed URL: {str(e)}")
+    
+def require_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token:
+            return jsonify({"error": "Missing token"}), 401
+        try:
+            # Decode the JWT token using the SECRET_KEY from the app config
+            decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+            request.user_id = decoded["user_id"]  # Attach user_id to the request object
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        return func(*args, **kwargs)
+    return wrapper   
+    
