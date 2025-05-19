@@ -246,11 +246,15 @@ def get_bids_for_listing(listing_id):
     
 # Fetch all notifications for a specific user
 @main.route('/notifications/<int:user_id>', methods=['GET'])
+@require_auth
 def get_notifications(user_id):
     try:
+        # Ensure the authenticated user is accessing their own notifications
+        if user_id != request.user_id:
+            return jsonify({"error": "Unauthorized access"}), 403
+
         # Fetch all notifications for the user
         notifications = Notification.query.filter_by(user_id=user_id).all()
-        # Return a JSON response with notification details
         return jsonify({
             "user_id": user_id,
             "notifications": [
@@ -270,17 +274,19 @@ def get_notifications(user_id):
     
 # Create a notification
 @main.route('/notifications', methods=['POST'])
+@require_auth
 def create_notification():
-
     data = request.get_json()
     try:
+        # Use the authenticated user's ID
+        user_id = request.user_id
+
         # Create a new notification object
         new_notification = Notification(
-            user_id=data['user_id'],
+            user_id=user_id,
             message=data['message'],
             is_read=False  # Default to unread
         )
-        # Add the notification to the database
         db.session.add(new_notification)
         db.session.commit()
         return jsonify({"message": "Notification created successfully!"}), 201
@@ -289,6 +295,7 @@ def create_notification():
     
     
 @main.route('/debug-env', methods=['GET'])
+@require_auth
 def debug_env():
     return jsonify({
         "SQLALCHEMY_DATABASE_URI": os.environ.get('SQLALCHEMY_DATABASE_URI'),
@@ -299,27 +306,8 @@ def debug_env():
         "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
     })
 
-
-
-@main.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()
-    try:
-        new_user = User(
-            username=data['username'],
-            email=data['email'],
-            phone_number=data['phone_number'],  # Require phone number
-            password_hash=generate_password_hash(data['password'])
-        )
-        db.session.add(new_user)
-        db.session.commit()
-        return jsonify({"message": "User created successfully!"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    
-
-  
 @main.route('/check-expired', methods=['POST'])
+@require_auth
 def check_expired():
     try:
         result = check_expired_listings()
@@ -360,16 +348,25 @@ def listing_highest_bid(id):
 
 
 @main.route('/notifications/<int:id>/read', methods=['PATCH'])
+@require_auth
 def mark_notification_read(id):
     try:
-        n = Notification.query.get_or_404(id)
-        n.is_read = True
+        # Fetch the notification
+        notification = Notification.query.get_or_404(id)
+
+        # Ensure the authenticated user owns the notification
+        if notification.user_id != request.user_id:
+            return jsonify({"error": "Unauthorized access"}), 403
+
+        # Mark the notification as read
+        notification.is_read = True
         db.session.commit()
         return jsonify({"message": "Marked read"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
 @main.route('/generate-presigned-url', methods=['POST'])
+@require_auth
 def generate_presigned_url():
     data = request.get_json()
     file_name = data.get('file_name')
@@ -387,6 +384,7 @@ def generate_presigned_url():
     
     
 @main.route('/debug-routes', methods=['GET'])
+@require_auth
 def debug_routes():
     from flask import current_app
     return jsonify([str(rule) for rule in current_app.url_map.iter_rules()])
