@@ -171,7 +171,7 @@ def place_bid():
             # Notify the seller
             seller = User.query.get(listing.user_id)  # Fetch the seller's details
             seller_notification = Notification(
-                user_id=listing.user_id
+                user_id=listing.user_id,
                 message=f"A new bid has been placed on your listing: {listing.title}",
                 is_read=False
             )
