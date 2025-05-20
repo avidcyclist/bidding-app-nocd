@@ -558,13 +558,19 @@ def generate_listing():
 
         text = response.text.strip()
 
-        # Optional: try to parse title/description from the response
+        # Improved parsing logic
+        title = "Generated Title"
+        description = text  # Default to the full response if parsing fails
+
+        # Look for "Title:" and "Description:" markers
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
             description = text.split("Description:")[1].strip()
-        else:
-            title = "Generated Title"
-            description = text
+        elif "**Option 2**" in text:  # Handle cases with multiple options
+            options = text.split("**Option 2**")
+            if "Title:" in options[0] and "Description:" in options[0]:
+                title = options[0].split("Title:")[1].split("Description:")[0].strip()
+                description = options[0].split("Description:")[1].strip()
 
         return jsonify({
             "title": title,
