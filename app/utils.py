@@ -86,8 +86,8 @@ def create_presigned_url(file_name, file_type):
     """
     try:
         s3 = boto3.client('s3')
-        bucket = os.getenv['S3_BUCKET']
-        region = os.getenv['S3_REGION']
+        bucket = os.getenv('S3_BUCKET')
+        region = os.getenv('S3_REGION')
 
         # Generate a unique file name
         unique_file_name = f"{uuid4().hex}_{file_name}"
