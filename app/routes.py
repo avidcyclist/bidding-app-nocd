@@ -607,7 +607,7 @@ def generate_listing():
                 end_time = parsed_date.strftime("%m/%d/%Y %I:%M %p")
             except ValueError:
                 # Fallback to the default end time if parsing fails
-            end_time = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")
+                end_time = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")
 
         # Return the generated data
         return jsonify({
