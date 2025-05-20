@@ -542,12 +542,23 @@ def generate_listing():
         return jsonify({"error": "Missing image_base64"}), 400
 
     try:
+        # Configure the Generative AI model
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-flash")
 
+        # Decode the Base64 image
         image_bytes = base64.b64decode(image_base64)
-        prompt = "Generate a title and description for an auction listing based on this image."
 
+        # Prompt for AI to generate title, description, and starting price
+        prompt = (
+            "Generate a title, description, and a suggested starting price for an auction listing based on this image. "
+            "The response should include:\n"
+            "Title: [Your Title Here]\n"
+            "Description: [Your Description Here]\n"
+            "Starting Price: [Suggested Starting Price Here]"
+        )
+
+        # Send the prompt and image to the AI model
         response = model.generate_content([
             prompt,
             {
@@ -556,25 +567,28 @@ def generate_listing():
             }
         ])
 
+        # Extract the AI response
         text = response.text.strip()
 
-        # Improved parsing logic
+        # Default values
         title = "Generated Title"
         description = text  # Default to the full response if parsing fails
+        starting_price = "10.00"  # Default starting price
+        end_time = (datetime.utcnow() + timedelta(days=1)).isoformat()  # Default end time (1 day from now)
 
-        # Look for "Title:" and "Description:" markers
+        # Parse the AI response for "Title:", "Description:", and "Starting Price:"
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
-            description = text.split("Description:")[1].strip()
-        elif "**Option 2**" in text:  # Handle cases with multiple options
-            options = text.split("**Option 2**")
-            if "Title:" in options[0] and "Description:" in options[0]:
-                title = options[0].split("Title:")[1].split("Description:")[0].strip()
-                description = options[0].split("Description:")[1].strip()
+            description = text.split("Description:")[1].split("Starting Price:")[0].strip()
+        if "Starting Price:" in text:
+            starting_price = text.split("Starting Price:")[1].strip().split("\n")[0]
 
+        # Return the generated data
         return jsonify({
             "title": title,
-            "description": description
+            "description": description,
+            "starting_price": starting_price,
+            "end_time": end_time
         })
 
     except Exception as e:
