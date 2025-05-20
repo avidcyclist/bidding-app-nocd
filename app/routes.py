@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import base64
 import google.generativeai as genai
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -542,6 +543,7 @@ def upload_file():
     
     
 @main.route('/generate-listing', methods=['POST'])
+@require_auth
 def generate_listing():
     data = request.get_json()
     image_base64 = data.get("image_base64")
@@ -550,17 +552,17 @@ def generate_listing():
         return jsonify({"error": "Missing image_base64"}), 400
 
     try:
-        # Configure the Generative AI model
+        # --- AI Setup ---
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-flash")
 
-        # Decode the Base64 image
+        # Decode image
         image_bytes = base64.b64decode(image_base64)
 
-        # Updated prompt
+        # Prompt
         prompt = (
             "Generate a title, description, and a suggested starting price in USD for an auction listing based on this image. "
-            "The end date should be exactly 24 hours from now. "
+            "The end date should be exactly 24 hours from now in America/Chicago time. "
             "The response should include:\n"
             "Title: [Your Title Here]\n"
             "Description: [Your Description Here]\n"
@@ -568,54 +570,52 @@ def generate_listing():
             "End Date: [MM/DD/YYYY HH:MM AM/PM format, exactly 24 hours from now]"
         )
 
-        # Send the prompt and image to the AI model
         response = model.generate_content([
             prompt,
-            {
-                "mime_type": "image/png",  # or jpeg
-                "data": image_bytes
-            }
+            {"mime_type": "image/png", "data": image_bytes}
         ])
-
-        # Extract the AI response
         text = response.text.strip()
 
-        # Default values
-        title = "Generated Title"
-        description = text  # Default to the full response if parsing fails
-        starting_price = 10.00  # Default starting price as a float
-        end_time = (datetime.utcnow() + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")  # Default end time
+        # --- Defaults using America/Chicago ---
+        tz = ZoneInfo("America/Chicago")
+        default_end_dt = datetime.now(tz) + timedelta(days=1)
+        default_end_str = default_end_dt.strftime("%m/%d/%Y %I:%M %p")
 
-        # Parse the AI response for "Title:", "Description:", "Starting Price:", and "End Date:"
+        # Initialize with defaults
+        title = "Generated Title"
+        description = text
+        starting_price = 10.00
+        end_time = default_end_str
+
+        # --- Parse AI response ---
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
             description = text.split("Description:")[1].split("Starting Price:")[0].strip()
+
         if "Starting Price:" in text:
-            raw_price = text.split("Starting Price:")[1].strip().split("\n")[0]
-            # Clean up the starting price (remove symbols like "**" and "$")
-            raw_price = raw_price.replace("**", "").replace("$", "").strip()
-            # Convert to a float
+            raw_price = text.split("Starting Price:")[1].split("\n")[0].replace("$", "").strip()
             try:
                 starting_price = float(raw_price)
             except ValueError:
-                starting_price = 10.00  # Fallback to default if parsing fails
-        if "End Date:" in text:
-            raw_end_date = text.split("End Date:")[1].strip().split("\n")[0]
-            try:
-                # Use the AI's end date if it matches the expected format
-                parsed_date = datetime.strptime(raw_end_date, "%m/%d/%Y %I:%M %p")
-                end_time = parsed_date.strftime("%m/%d/%Y %I:%M %p")
-            except ValueError:
-                # Fallback to the default end time if parsing fails
-                end_time = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")
+                pass
 
-        # Return the generated data
+        if "End Date:" in text:
+            raw_end = text.split("End Date:")[1].split("\n")[0].strip()
+            try:
+                # parse using the same format, then localize to Chicago time
+                parsed = datetime.strptime(raw_end, "%m/%d/%Y %I:%M %p")
+                parsed = parsed.replace(tzinfo=tz)
+                end_time = parsed.strftime("%m/%d/%Y %I:%M %p")
+            except ValueError:
+                # fallback uses default above
+                end_time = default_end_str
+
         return jsonify({
             "title": title,
             "description": description,
             "starting_price": starting_price,
             "end_time": end_time
-        })
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
