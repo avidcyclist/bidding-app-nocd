@@ -112,14 +112,16 @@ def require_auth(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization")
+        static_token = os.environ.get("LAMBDA_SECRET_KEY")  # Get the static token from environment variables
+
         if not token:
             print("Missing token in request headers")  # Debugging log
             return jsonify({"error": "Missing token"}), 401
 
-        # Handle "Bearer" prefix
-        if token.startswith("Bearer "):
-            token = token.split(" ")[1]  # Extract the token part
-            print(f"Token after stripping 'Bearer': {token}")  # Debugging log
+        # Check if the token matches the static token
+        if token == f"Bearer {static_token}":
+            print("Static token authenticated successfully")  # Debugging log
+            return func(*args, **kwargs)
 
         try:
             # Decode the JWT token using the SECRET_KEY from the app config
@@ -133,5 +135,7 @@ def require_auth(func):
         except jwt.InvalidTokenError as e:
             print(f"Invalid token: {str(e)}")  # Debugging log
             return jsonify({"error": "Invalid token"}), 401
+
         return func(*args, **kwargs)
     return wrapper
+    
