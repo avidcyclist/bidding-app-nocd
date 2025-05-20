@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 import jwt
 import base64
 import google.generativeai as genai
+from dotenv import load_dotenv
+load_dotenv()
 
 main = Blueprint('main', __name__)
 

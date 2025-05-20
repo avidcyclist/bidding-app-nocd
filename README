@@ -28,3 +28,17 @@ This is a bidding platform where users can:
    ```bash
    git clone https://github.com/your-username/bidding-app.git
    cd bidding-app
+
+
+
+## Environment Variables
+The following environment variables need to be set:
+
+- `GEMINI_API_KEY`: Your Gemini API key for AI-powered listing generation.
+- `S3_BUCKET`: The name of your S3 bucket for storing images.
+- `S3_REGION`: The AWS region of your S3 bucket.
+- `SECRET_KEY`: The secret key for Flask (used for JWT authentication).
+- `SQLALCHEMY_DATABASE_URI`: The database connection string.
+- `TWILIO_ACCOUNT_SID`: Twilio account SID for sending SMS notifications.
+- `TWILIO_AUTH_TOKEN`: Twilio authentication token.
+- `TWILIO_PHONE_NUMBER`: Twilio phone number for sending SMS.
