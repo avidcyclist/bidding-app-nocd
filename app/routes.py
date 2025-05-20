@@ -321,7 +321,7 @@ def debug_env():
     })
 
 @main.route('/check-expired', methods=['POST'])
-@require_auth
+
 def check_expired():
     try:
         result = check_expired_listings()
@@ -475,3 +475,4 @@ def login_user():
     except Exception as e:
         print(f"Error in login_user: {str(e)}")  # Debugging log
         return jsonify({"error": str(e)}), 500
+    
