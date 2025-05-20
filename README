@@ -1,0 +1,30 @@
+# Bidding App (Like eBay)
+
+## Overview
+This is a bidding platform where users can:
+1. Create listings with a title, description, starting price, end time, and optional image.
+2. Place bids on active listings — the highest bid always wins.
+3. See the current highest bid and bidding history.
+4. Get notified (via text reminder):
+   - Sellers get notified on every new bid.
+   - Bidders get notified when they are outbid or win.
+5. Upload an image and auto-generate a listing using AI.
+
+## Tech Stack
+- **Backend**: Python + Flask
+- **Database**: MySQL
+- **Frontend**: Retool
+- **Cloud Services**: AWS (S3 for image storage)
+- **AI Integration**: Gemini API for auto-generating listings
+
+## Features
+- AI-powered listing generation.
+- Real-time bid updates.
+- Notifications for sellers and bidders.
+- Secure user authentication with JWT.
+
+## Setup Instructions
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/bidding-app.git
+   cd bidding-app

@@ -9,6 +9,9 @@ import logging
 from uuid import uuid4
 from functools import wraps
 import jwt
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_s3_client():
     """
@@ -16,14 +19,14 @@ def get_s3_client():
     """
     return boto3.client(
         's3',
-        aws_access_key_id=current_app.config.get('S3_ACCESS_KEY'),
-        aws_secret_access_key=current_app.config.get('S3_SECRET_KEY')
+        aws_access_key_id=os.getenv('S3_ACCESS_KEY'),
+        aws_secret_access_key=os.getenv('S3_SECRET_KEY')
     )
 
 def send_sms(to, message):
-    account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-    auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-    twilio_number = os.environ.get("TWILIO_PHONE_NUMBER")
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    twilio_number = os.getenv("TWILIO_PHONE_NUMBER")
 
     client = Client(account_sid, auth_token)
     try:
@@ -83,8 +86,8 @@ def create_presigned_url(file_name, file_type):
     """
     try:
         s3 = boto3.client('s3')
-        bucket = current_app.config['S3_BUCKET']
-        region = current_app.config['S3_REGION']
+        bucket = os.getenv['S3_BUCKET']
+        region = os.getenv['S3_REGION']
 
         # Generate a unique file name
         unique_file_name = f"{uuid4().hex}_{file_name}"
@@ -123,7 +126,7 @@ def require_auth(func):
             print(f"Token to decode: {token}")  # Debugging log
 
             # Decode the JWT token using the SECRET_KEY from the app config
-            decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+            decoded = jwt.decode(token, os.getenv['SECRET_KEY'], algorithms=["HS256"])
             print(f"Decoded token: {decoded}")  # Debugging log
 
             # Attach user_id to the request object for downstream use

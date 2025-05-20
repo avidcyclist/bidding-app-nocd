@@ -71,7 +71,7 @@ def create_listing():
         user_id = request.user_id
         # Log the raw JSON data
         data = request.get_json()
-        print(f"Raw JSON Data: {data}")
+ 
 
         # Extract fields from the request
         title = data.get('title')
@@ -319,18 +319,17 @@ def create_notification():
 
 def debug_env():
     return jsonify({
-        "SQLALCHEMY_DATABASE_URI": os.environ.get('SQLALCHEMY_DATABASE_URI'),
-        "S3_BUCKET": os.environ.get('S3_BUCKET'),
-        "S3_REGION": os.environ.get('S3_REGION'),
-        "TWILIO_ACCOUNT_SID": os.environ.get('TWILIO_ACCOUNT_SID'),
-        "TWILIO_AUTH_TOKEN": os.environ.get('TWILIO_AUTH_TOKEN'),
-        "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
-        "SECRET_KEY": os.environ.get('SECRET_KEY'),
-        "GEMINI_API_KEY": os.environ.get('GEMINI_API_KEY'),
+        "SQLALCHEMY_DATABASE_URI": os.getenv('SQLALCHEMY_DATABASE_URI'),
+        "S3_BUCKET": os.getenv('S3_BUCKET'),
+        "S3_REGION": os.getenv('S3_REGION'),
+        "TWILIO_ACCOUNT_SID": os.getenv('TWILIO_ACCOUNT_SID'),
+        "TWILIO_AUTH_TOKEN": os.getenv('TWILIO_AUTH_TOKEN'),
+        "TWILIO_PHONE_NUMBER": os.getenv('TWILIO_PHONE_NUMBER'),
+        "SECRET_KEY": os.getenv('SECRET_KEY'),
+        "GEMINI_API_KEY": os.getenv('GEMINI_API_KEY'),
     })
 
 @main.route('/check-expired', methods=['POST'])
-
 def check_expired():
     try:
         result = check_expired_listings()
@@ -550,19 +549,21 @@ def generate_listing():
 
     try:
         # Configure the Generative AI model
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-flash")
 
         # Decode the Base64 image
         image_bytes = base64.b64decode(image_base64)
 
-        # Prompt for AI to generate title, description, starting price, and end time
+        # Updated prompt
         prompt = (
-            "Generate a title, description, a suggested starting price in USD, and an end date for an auction listing based on this image. "
+            "Generate a title, description, and a suggested starting price in USD for an auction listing based on this image. "
+            "The end date should be exactly 24 hours from now. "
             "The response should include:\n"
             "Title: [Your Title Here]\n"
             "Description: [Your Description Here]\n"
             "Starting Price: [Suggested Starting Price Here in USD]\n"
+            "End Date: [MM/DD/YYYY HH:MM AM/PM format, exactly 24 hours from now]"
         )
 
         # Send the prompt and image to the AI model
@@ -580,8 +581,8 @@ def generate_listing():
         # Default values
         title = "Generated Title"
         description = text  # Default to the full response if parsing fails
-        starting_price = "10.00"  # Default starting price
-        end_time = (datetime.utcnow() + timedelta(days=1)).isoformat()  # Default end time (1 day from now)
+        starting_price = 10.00  # Default starting price as a float
+        end_time = (datetime.utcnow() + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")  # Default end time
 
         # Parse the AI response for "Title:", "Description:", "Starting Price:", and "End Date:"
         if "Title:" in text and "Description:" in text:
@@ -590,14 +591,21 @@ def generate_listing():
         if "Starting Price:" in text:
             raw_price = text.split("Starting Price:")[1].strip().split("\n")[0]
             # Clean up the starting price (remove symbols like "**" and "$")
-            starting_price = raw_price.replace("**", "").replace("$", "").strip()
-            # Ensure it's formatted as a valid currency
+            raw_price = raw_price.replace("**", "").replace("$", "").strip()
+            # Convert to a float
             try:
-                starting_price = f"{float(starting_price):.2f}"  # Convert to float and format as 2 decimal places
+                starting_price = float(raw_price)
             except ValueError:
                 starting_price = 10.00  # Fallback to default if parsing fails
         if "End Date:" in text:
-            end_time = text.split("End Date:")[1].strip().split("\n")[0]
+            raw_end_date = text.split("End Date:")[1].strip().split("\n")[0]
+            try:
+                # Use the AI's end date if it matches the expected format
+                parsed_date = datetime.strptime(raw_end_date, "%m/%d/%Y %I:%M %p")
+                end_time = parsed_date.strftime("%m/%d/%Y %I:%M %p")
+            except ValueError:
+                # Fallback to the default end time if parsing fails
+                end_time = (datetime.utcnow() + timedelta(days=1)).strftime("%m/%d/%Y %I:%M %p")
 
         # Return the generated data
         return jsonify({
