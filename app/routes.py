@@ -102,7 +102,7 @@ def create_listing():
             return jsonify({
                 "message": "Listing created successfully!",
                 "listing_id": listing.id,
-                "image_url": image_url
+                "image_url": listing.image_url
             }), 201
 
         except Exception as e:
