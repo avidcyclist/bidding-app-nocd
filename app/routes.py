@@ -229,18 +229,29 @@ def get_bids_for_listing(listing_id):
 
         # Fetch all bids for the listing
         bids = Bid.query.filter_by(listing_id=listing_id).all()
-        # Return a JSON response with bid details
+
+        # Prepare the bid history
+        bid_history = [
+            {
+                "id": None,  # No ID for the starting price
+                "amount": listing.starting_price,
+                "user_id": listing.user_id,  # The seller's user ID
+                "timestamp": listing.created_at  # Use the listing creation time
+            }
+        ] + [
+            {
+                "id": bid.id,
+                "amount": bid.amount,
+                "user_id": bid.user_id,
+                "timestamp": bid.timestamp
+            }
+            for bid in bids
+        ]
+
+        # Return the bid history
         return jsonify({
             "listing_id": listing_id,
-            "bids": [
-                {
-                    "id": bid.id,
-                    "amount": bid.amount,
-                    "user_id": bid.user_id,
-                    "timestamp": bid.timestamp
-                }
-                for bid in bids
-            ]
+            "bids": bid_history
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
