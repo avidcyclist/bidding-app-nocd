@@ -85,6 +85,11 @@ def create_presigned_url(file_name, file_type):
     Generate a pre-signed URL for uploading a file to S3.
     """
     try:
+        
+        print(f"S3_BUCKET: {os.getenv('S3_BUCKET')}")  # Debug log
+        print(f"S3_REGION: {os.getenv('S3_REGION')}")  # Debug log
+        print(f"Incoming file_name: {file_name}, file_type: {file_type}")  # Debug log
+
         s3 = boto3.client('s3')
         bucket = os.getenv('S3_BUCKET')
         region = os.getenv('S3_REGION')
@@ -109,12 +114,14 @@ def create_presigned_url(file_name, file_type):
             "file_path": f"https://{bucket}.s3.{region}.amazonaws.com/{unique_file_name}"
         }
     except Exception as e:
+        print(f"Error in create_presigned_url: {str(e)}")  # Debug log
         raise Exception(f"Failed to generate pre-signed URL: {str(e)}")
     
 def require_auth(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization")
+        print(f"Authorization header: {token}")  # Debugging log
 
         if not token:
             print("Missing token in request headers")  # Debugging log
@@ -126,7 +133,7 @@ def require_auth(func):
             print(f"Token to decode: {token}")  # Debugging log
 
             # Decode the JWT token using the SECRET_KEY from the app config
-            decoded = jwt.decode(token, os.getenv['SECRET_KEY'], algorithms=["HS256"])
+            decoded = jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=["HS256"])
             print(f"Decoded token: {decoded}")  # Debugging log
 
             # Attach user_id to the request object for downstream use
