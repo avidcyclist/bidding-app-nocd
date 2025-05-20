@@ -8,6 +8,8 @@ from app.utils import get_s3_client, send_sms, check_expired_listings, create_pr
 import os
 from datetime import datetime, timedelta
 import jwt
+import base64
+import google.generativeai as genai
 
 main = Blueprint('main', __name__)
 
@@ -530,3 +532,44 @@ def upload_file():
     except Exception as e:
         return jsonify({'error': f"Failed to upload file: {str(e)}"}), 500
     
+    
+@main.route('/generate-listing', methods=['POST'])
+def generate_listing():
+    data = request.get_json()
+    image_base64 = data.get("image_base64")
+
+    if not image_base64:
+        return jsonify({"error": "Missing image_base64"}), 400
+
+    try:
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+
+        image_bytes = base64.b64decode(image_base64)
+        prompt = "Generate a title and description for an auction listing based on this image."
+
+        response = model.generate_content([
+            prompt,
+            {
+                "mime_type": "image/png",  # or jpeg
+                "data": image_bytes
+            }
+        ])
+
+        text = response.text.strip()
+
+        # Optional: try to parse title/description from the response
+        if "Title:" in text and "Description:" in text:
+            title = text.split("Title:")[1].split("Description:")[0].strip()
+            description = text.split("Description:")[1].strip()
+        else:
+            title = "Generated Title"
+            description = text
+
+        return jsonify({
+            "title": title,
+            "description": description
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
