@@ -4,7 +4,13 @@ from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 import boto3
 from flask import current_app
-from app.utils import get_s3_client, send_sms, check_expired_listings, create_presigned_url, require_auth
+from app.utils import (
+    get_s3_client, 
+    send_sms, 
+    check_expired_listings,
+    create_presigned_url, 
+    require_auth
+)
 import os
 from datetime import datetime, timedelta
 import jwt
@@ -320,6 +326,7 @@ def debug_env():
         "TWILIO_AUTH_TOKEN": os.environ.get('TWILIO_AUTH_TOKEN'),
         "TWILIO_PHONE_NUMBER": os.environ.get('TWILIO_PHONE_NUMBER'),
         "SECRET_KEY": os.environ.get('SECRET_KEY'),
+        "GEMINI_API_KEY": os.environ.get('GEMINI_API_KEY'),
     })
 
 @main.route('/check-expired', methods=['POST'])
@@ -589,7 +596,7 @@ def generate_listing():
             try:
                 starting_price = f"{float(starting_price):.2f}"  # Convert to float and format as 2 decimal places
             except ValueError:
-                starting_price = "10.00"  # Fallback to default if parsing fails
+                starting_price = 10.00  # Fallback to default if parsing fails
         if "End Date:" in text:
             end_time = text.split("End Date:")[1].strip().split("\n")[0]
 
@@ -597,7 +604,7 @@ def generate_listing():
         return jsonify({
             "title": title,
             "description": description,
-            "starting_price": f"${starting_price}",  # Ensure the price is returned with a "$" symbol
+            "starting_price": starting_price,
             "end_time": end_time
         })
 
