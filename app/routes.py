@@ -77,7 +77,7 @@ def create_listing():
         print(f"Extracted Fields: title={title}, description={description}, starting_price={starting_price}, end_time={end_time}, user_id={user_id}, image_url={image_url}")
 
         # Validate required fields
-        missing = [field for field in ['title', 'description', 'starting_price', 'end_time', 'user_id', 'image_url'] if not data.get(field)]
+        missing = [field for field in ['title', 'description', 'starting_price', 'end_time', 'user_id'] if not data.get(field)]
         if missing:
             print(f"Missing Fields: {missing}")
             return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
@@ -337,9 +337,17 @@ def listing_bid_history(id):
 @main.route('/listings/<int:id>/highest_bid', methods=['GET'])
 def listing_highest_bid(id):
     try:
+        
+        # Fetch the listing
+        listing = Listing.query.get(id)
+        if not listing:
+            return jsonify({"error": "Listing not found"}), 404
+
+        
+        
         bid = Bid.query.filter_by(listing_id=id).order_by(Bid.amount.desc()).first()
         if not bid:
-            return jsonify({"id": None, "amount": None, "user_id": None, "timestamp": None}), 200
+            return jsonify({"id": None, "amount": listing.current_price, "user_id": None, "timestamp": None}), 200
         return jsonify({
             "id": bid.id,
             "amount": bid.amount,
