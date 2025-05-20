@@ -563,7 +563,6 @@ def generate_listing():
             "Title: [Your Title Here]\n"
             "Description: [Your Description Here]\n"
             "Starting Price: [Suggested Starting Price Here in USD]\n"
-            "End Date: [Suggested End Date Here]"
         )
 
         # Send the prompt and image to the AI model
