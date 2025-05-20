@@ -236,14 +236,14 @@ def get_bids_for_listing(listing_id):
                 "id": None,  # No ID for the starting price
                 "amount": listing.starting_price,
                 "user_id": listing.user_id,  # The seller's user ID
-                "timestamp": listing.created_at  # Use the listing creation time
+                "timestamp": listing.created_at.isoformat()  # Convert to ISO 8601
             }
         ] + [
             {
                 "id": bid.id,
                 "amount": bid.amount,
                 "user_id": bid.user_id,
-                "timestamp": bid.timestamp
+                "timestamp": bid.timestamp.isoformat()  # Convert to ISO 8601
             }
             for bid in bids
         ]
@@ -424,7 +424,6 @@ def register_user():
 
         # Create a new user with a consistent hashing algorithm
         hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
-        print(f"Generated password hash: {hashed_password}")  # Debugging log
         new_user = User(
             username=data['username'],
             email=data['email'],
@@ -434,7 +433,20 @@ def register_user():
         db.session.add(new_user)
         db.session.commit()
 
-        return jsonify({"message": "User registered successfully!"}), 201
+        # Generate a JWT token for the new user
+        exp_time = datetime.utcnow() + timedelta(hours=24)
+        payload = {"user_id": new_user.id, "exp": exp_time.timestamp()}  # Convert exp to timestamp
+        token = jwt.encode(
+            payload,
+            current_app.config['SECRET_KEY'],
+            algorithm="HS256"
+        )
+
+        return jsonify({
+            "message": "User registered successfully!",
+            "token": token,
+            "user_id": new_user.id
+        }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
