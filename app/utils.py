@@ -112,23 +112,22 @@ def require_auth(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization")
-        static_token = os.environ.get("LAMBDA_SECRET_KEY")  # Get the static token from environment variables
 
         if not token:
             print("Missing token in request headers")  # Debugging log
             return jsonify({"error": "Missing token"}), 401
 
-        # Check if the token matches the static token
-        if token == f"Bearer {static_token}":
-            print("Static token authenticated successfully")  # Debugging log
-            return func(*args, **kwargs)
-
         try:
+            # Remove "Bearer " prefix if present
+            token = token.split(" ")[1] if " " in token else token
+            print(f"Token to decode: {token}")  # Debugging log
+
             # Decode the JWT token using the SECRET_KEY from the app config
-            print(f"Token received: {token}")  # Debugging log
             decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
             print(f"Decoded token: {decoded}")  # Debugging log
-            request.user_id = decoded["user_id"]  # Attach user_id to the request object
+
+            # Attach user_id to the request object for downstream use
+            request.user_id = decoded["user_id"]
         except jwt.ExpiredSignatureError:
             print("Token has expired")  # Debugging log
             return jsonify({"error": "Token expired"}), 401
