@@ -476,3 +476,45 @@ def login_user():
         print(f"Error in login_user: {str(e)}")  # Debugging log
         return jsonify({"error": str(e)}), 500
     
+    
+    
+@main.route('/upload-file', methods=['POST'])
+@require_auth
+def upload_file():
+    data = request.get_json()
+    file_name = data.get('file_name')
+    file_type = data.get('file_type')
+    base64_data = data.get('base64Data')
+
+    if not file_name or not file_type or not base64_data:
+        return jsonify({'error': 'Missing file_name, file_type, or base64Data'}), 400
+
+    try:
+        # Decode the Base64 string into binary
+        import base64
+        binary_data = base64.b64decode(base64_data)
+
+        # Generate a unique file name
+        from uuid import uuid4
+        unique_file_name = f"{uuid4().hex}_{file_name}"
+
+        # Upload the binary data to S3
+        s3 = boto3.client('s3')
+        bucket = current_app.config['S3_BUCKET']
+        region = current_app.config['S3_REGION']
+
+        s3.put_object(
+            Bucket=bucket,
+            Key=unique_file_name,
+            Body=binary_data,
+            ContentType=file_type
+        )
+
+        # Generate the file path
+        file_path = f"https://{bucket}.s3.{region}.amazonaws.com/{unique_file_name}"
+
+        return jsonify({"file_path": file_path}), 200
+
+    except Exception as e:
+        return jsonify({'error': f"Failed to upload file: {str(e)}"}), 500
+    
