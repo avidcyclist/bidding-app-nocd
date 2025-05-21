@@ -552,58 +552,63 @@ def generate_listing():
         return jsonify({"error": "Missing image_base64"}), 400
 
     try:
-        # --- AI Setup ---
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        # Configure the Generative AI model
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-flash")
 
-        # Decode image
+        # Decode the Base64 image
         image_bytes = base64.b64decode(image_base64)
 
-        # Prompt: only ask for title, description, and price
+        # Prompt for AI to generate title, description, starting price, and end time
         prompt = (
-            "Generate a title and description for an auction listing based on this image."
+            "Generate a title, description, a suggested starting price in USD, and an end date for an auction listing based on this image. "
+            "The response should include:\n"
+            "Title: [Your Title Here]\n"
+            "Description: [Your Description Here]\n"
+            "Starting Price: [Suggested Starting Price Here in USD]\n"
+
         )
+
+        # Send the prompt and image to the AI model
         response = model.generate_content([
             prompt,
-            {"mime_type": "image/png", "data": image_bytes}
+            {
+                "mime_type": "image/png",  # or jpeg
+                "data": image_bytes
+            }
         ])
+
+        # Extract the AI response
         text = response.text.strip()
 
-        # --- Clean up AI response ---
-        # Remove everything after "Option" or similar unwanted sections
-        if "Option" in text:
-            text = text.split("Option")[0].strip()
-
-        # --- Compute end time locally in America/Chicago ---
-        tz = ZoneInfo("America/Chicago")
-        default_end = datetime.now(tz) + timedelta(days=1)
-        end_time = default_end.strftime("%m/%d/%Y %I:%M %p")
-
-        # --- Defaults ---
+        # Default values
         title = "Generated Title"
-        description = text
-        starting_price = 10.00
+        description = text  # Default to the full response if parsing fails
+        starting_price = "10.00"  # Default starting price
 
-        # --- Parse AI response ---
+
+        # Parse the AI response for "Title:", "Description:", "Starting Price:", and "End Date:"
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
             description = text.split("Description:")[1].split("Starting Price:")[0].strip()
-
         if "Starting Price:" in text:
-            raw = text.split("Starting Price:")[1].strip().split("\n")[0]
-            raw = raw.replace("$", "").replace("**", "").strip()
+            raw_price = text.split("Starting Price:")[1].strip().split("\n")[0]
+            # Clean up the starting price (remove symbols like "**" and "$")
+            starting_price = raw_price.replace("**", "").replace("$", "").strip()
+            # Ensure it's formatted as a valid currency
             try:
-                starting_price = float(raw)
+                starting_price = f"{float(starting_price):.2f}"  # Convert to float and format as 2 decimal places
             except ValueError:
-                pass
+                starting_price = "10.00"  # Fallback to default if parsing fails
+        if "End Date:" in text:
+            end_time = text.split("End Date:")[1].strip().split("\n")[0]
 
+        # Return the generated data
         return jsonify({
             "title": title,
             "description": description,
-            "starting_price": starting_price,
-            "end_time": end_time
-        }), 200
+            "starting_price": starting_price,  # Ensure the price is returned with a "$" symbol
+        })
 
     except Exception as e:
-        current_app.logger.error("generate_listing error", exc_info=e)
         return jsonify({"error": str(e)}), 500
