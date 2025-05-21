@@ -569,6 +569,11 @@ def generate_listing():
         ])
         text = response.text.strip()
 
+        # --- Clean up AI response ---
+        # Remove everything after "Option" or similar unwanted sections
+        if "Option" in text:
+            text = text.split("Option")[0].strip()
+
         # --- Compute end time locally in America/Chicago ---
         tz = ZoneInfo("America/Chicago")
         default_end = datetime.now(tz) + timedelta(days=1)
