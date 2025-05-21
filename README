@@ -42,3 +42,5 @@ The following environment variables need to be set:
 - `TWILIO_ACCOUNT_SID`: Twilio account SID for sending SMS notifications.
 - `TWILIO_AUTH_TOKEN`: Twilio authentication token.
 - `TWILIO_PHONE_NUMBER`: Twilio phone number for sending SMS.
+- 'AWS_ACCESS_KEY_ID' : Used for beanstalk/s3/amazon services
+- 'AWS_SECRET_ACCESS_KEY' : Used for beanstalk/s3/amazon services
