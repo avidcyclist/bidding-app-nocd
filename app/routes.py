@@ -559,33 +559,26 @@ def generate_listing():
         # Decode image
         image_bytes = base64.b64decode(image_base64)
 
-        # Prompt
+        # Prompt: only ask for title, description, and price
         prompt = (
-            "Generate a title, description, and a suggested starting price in USD for an auction listing based on this image. "
-            "The end date should be exactly 24 hours from now in America/Chicago time. "
-            "The response should include:\n"
-            "Title: [Your Title Here]\n"
-            "Description: [Your Description Here]\n"
-            "Starting Price: [Suggested Starting Price Here in USD]\n"
-            "End Date: [MM/DD/YYYY HH:MM AM/PM format, exactly 24 hours from now]"
+            "Generate a title, a description, and a suggested starting price in USD "
+            "for an auction listing based on this image."
         )
-
         response = model.generate_content([
             prompt,
             {"mime_type": "image/png", "data": image_bytes}
         ])
         text = response.text.strip()
 
-        # --- Defaults using America/Chicago ---
+        # --- Compute end time locally in America/Chicago ---
         tz = ZoneInfo("America/Chicago")
-        default_end_dt = datetime.now(tz) + timedelta(days=1)
-        default_end_str = default_end_dt.strftime("%m/%d/%Y %I:%M %p")
+        default_end = datetime.now(tz) + timedelta(days=1)
+        end_time = default_end.strftime("%m/%d/%Y %I:%M %p")
 
-        # Initialize with defaults
+        # --- Defaults ---
         title = "Generated Title"
         description = text
         starting_price = 10.00
-        end_time = default_end_str
 
         # --- Parse AI response ---
         if "Title:" in text and "Description:" in text:
@@ -593,22 +586,12 @@ def generate_listing():
             description = text.split("Description:")[1].split("Starting Price:")[0].strip()
 
         if "Starting Price:" in text:
-            raw_price = text.split("Starting Price:")[1].split("\n")[0].replace("$", "").strip()
+            raw = text.split("Starting Price:")[1].strip().split("\n")[0]
+            raw = raw.replace("$", "").replace("**", "").strip()
             try:
-                starting_price = float(raw_price)
+                starting_price = float(raw)
             except ValueError:
                 pass
-
-        if "End Date:" in text:
-            raw_end = text.split("End Date:")[1].split("\n")[0].strip()
-            try:
-                # parse using the same format, then localize to Chicago time
-                parsed = datetime.strptime(raw_end, "%m/%d/%Y %I:%M %p")
-                parsed = parsed.replace(tzinfo=tz)
-                end_time = parsed.strftime("%m/%d/%Y %I:%M %p")
-            except ValueError:
-                # fallback uses default above
-                end_time = default_end_str
 
         return jsonify({
             "title": title,
@@ -618,4 +601,5 @@ def generate_listing():
         }), 200
 
     except Exception as e:
+        current_app.logger.error("generate_listing error", exc_info=e)
         return jsonify({"error": str(e)}), 500
