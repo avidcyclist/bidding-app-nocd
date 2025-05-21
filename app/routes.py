@@ -559,14 +559,13 @@ def generate_listing():
         # Decode the Base64 image
         image_bytes = base64.b64decode(image_base64)
 
-        # Prompt for AI to generate title, description, starting price, and end time
+        # Prompt for AI to generate title, description, and starting price
         prompt = (
-            "Generate a title, description, a suggested starting price in USD, and an end date for an auction listing based on this image. "
+            "Generate a title, description, and a suggested starting price in USD for an auction listing based on this image. "
             "The response should include:\n"
             "Title: [Your Title Here]\n"
             "Description: [Your Description Here]\n"
             "Starting Price: [Suggested Starting Price Here in USD]\n"
-
         )
 
         # Send the prompt and image to the AI model
@@ -586,8 +585,7 @@ def generate_listing():
         description = text  # Default to the full response if parsing fails
         starting_price = "10.00"  # Default starting price
 
-
-        # Parse the AI response for "Title:", "Description:", "Starting Price:", and "End Date:"
+        # Parse the AI response for "Title:", "Description:", and "Starting Price:"
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
             description = text.split("Description:")[1].split("Starting Price:")[0].strip()
@@ -600,15 +598,13 @@ def generate_listing():
                 starting_price = f"{float(starting_price):.2f}"  # Convert to float and format as 2 decimal places
             except ValueError:
                 starting_price = "10.00"  # Fallback to default if parsing fails
-        if "End Date:" in text:
-            end_time = text.split("End Date:")[1].strip().split("\n")[0]
 
         # Return the generated data
         return jsonify({
             "title": title,
             "description": description,
-            "starting_price": starting_price,  # Ensure the price is returned with a "$" symbol
-        })
+            "starting_price": starting_price
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
