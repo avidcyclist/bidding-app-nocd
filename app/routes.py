@@ -561,8 +561,7 @@ def generate_listing():
 
         # Prompt: only ask for title, description, and price
         prompt = (
-            "Generate a title, a description, and a suggested starting price in USD "
-            "for an auction listing based on this image."
+            "Generate a title and description for an auction listing based on this image."
         )
         response = model.generate_content([
             prompt,
